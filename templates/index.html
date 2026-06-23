@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>식당 재고관리 시스템</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f5f6fa; color: #333; }
+
+  header {
+    background: linear-gradient(135deg, #2b6cb0, #1a4a7c);
+    color: white; padding: 18px 32px;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  header h1 { font-size: 1.4rem; font-weight: 700; }
+  header span { font-size: 1.6rem; }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
+
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .stat-card {
+    background: white; border-radius: 12px; padding: 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    display: flex; align-items: center; gap: 16px;
+  }
+  .stat-icon { font-size: 2rem; }
+  .stat-label { font-size: 0.8rem; color: #888; margin-bottom: 4px; }
+  .stat-value { font-size: 1.5rem; font-weight: 700; color: #2b6cb0; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+  @media(max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .card {
+    background: white; border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden;
+  }
+  .card-header {
+    padding: 16px 20px; font-weight: 700; font-size: 1rem;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-body { padding: 16px 20px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th { background: #f8f9fa; padding: 10px 12px; text-align: left; color: #666; font-weight: 600; border-bottom: 2px solid #e9ecef; }
+  td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafbff; }
+
+  .badge {
+    display: inline-block; padding: 3px 8px; border-radius: 20px;
+    font-size: 0.75rem; font-weight: 600;
+  }
+  .badge-ok   { background: #e6f4ea; color: #2d7a3e; }
+  .badge-warn { background: #fff8e1; color: #b07d00; }
+  .badge-low  { background: #fdecea; color: #c0392b; }
+
+  .progress-wrap { background: #e9ecef; border-radius: 99px; height: 8px; width: 120px; overflow: hidden; }
+  .progress-bar  { height: 100%; border-radius: 99px; transition: width 0.4s; }
+  .bar-ok   { background: #48bb78; }
+  .bar-warn { background: #f6c23e; }
+  .bar-low  { background: #e53e3e; }
+
+  .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 12px; }
+  .menu-card {
+    border: 1px solid #e9ecef; border-radius: 10px; padding: 16px;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .menu-card:hover { border-color: #2b6cb0; box-shadow: 0 2px 8px rgba(43,108,176,0.12); transform: translateY(-1px); }
+  .menu-card h3 { font-size: 1rem; margin-bottom: 6px; }
+  .menu-price { color: #2b6cb0; font-weight: 700; font-size: 1.1rem; }
+  .menu-cost  { color: #888; font-size: 0.8rem; margin-top: 4px; }
+  .menu-margin { color: #2d7a3e; font-size: 0.8rem; }
+
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45); z-index: 100;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: white; border-radius: 16px; padding: 28px;
+    width: 420px; max-width: 95vw;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  }
+  .modal h2 { margin-bottom: 16px; font-size: 1.2rem; }
+  .modal label { display: block; margin-bottom: 6px; font-size: 0.88rem; color: #555; }
+  .modal input {
+    width: 100%; padding: 10px 12px; border: 1px solid #ddd;
+    border-radius: 8px; font-size: 1rem; margin-bottom: 16px;
+    outline: none; transition: border 0.2s;
+  }
+  .modal input:focus { border-color: #2b6cb0; }
+
+  .btn {
+    padding: 10px 20px; border: none; border-radius: 8px;
+    font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-primary { background: #2b6cb0; color: white; }
+  .btn-primary:hover { background: #1a4a7c; }
+  .btn-secondary { background: #e9ecef; color: #333; margin-left: 8px; }
+  .btn-secondary:hover { background: #d0d5dd; }
+  .btn-danger { background: #e53e3e; color: white; }
+  .btn-danger:hover { background: #c0392b; }
+  .btn-sm { padding: 5px 12px; font-size: 0.8rem; }
+
+  .alert {
+    padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem;
+  }
+  .alert-success { background: #e6f4ea; color: #2d7a3e; border-left: 4px solid #48bb78; }
+  .alert-error   { background: #fdecea; color: #c0392b; border-left: 4px solid #e53e3e; }
+  .alert-warn    { background: #fff8e1; color: #7d5a00; border-left: 4px solid #f6c23e; }
+
+  #toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: #2d3748; color: white; padding: 14px 20px;
+    border-radius: 10px; font-size: 0.9rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    display: none; z-index: 200; max-width: 320px;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  .section-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; color: #2b6cb0; }
+
+  .low-stock-banner {
+    background: #fdecea; border: 1px solid #f5c6cb; border-radius: 10px;
+    padding: 14px 18px; margin-bottom: 20px; display: flex;
+    align-items: center; gap: 12px;
+  }
+  .low-stock-banner .icon { font-size: 1.4rem; }
+  .low-stock-banner .text { flex: 1; }
+  .low-stock-banner strong { color: #c0392b; }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid #e9ecef; }
+  .tab {
+    padding: 10px 20px; cursor: pointer; font-weight: 600;
+    color: #888; border-bottom: 2px solid transparent; margin-bottom: -2px;
+    transition: all 0.2s;
+  }
+  .tab.active { color: #2b6cb0; border-bottom-color: #2b6cb0; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <span>🍲</span>
+  <h1>식당 재고관리 시스템</h1>
+</header>
+
+<div class="container">
+
+  <!-- 요약 카드 -->
+  <div class="grid-3" id="stat-cards">
+    <div class="stat-card">
+      <span class="stat-icon">📦</span>
+      <div>
+        <div class="stat-label">전체 식자재</div>
+        <div class="stat-value" id="total-ingredients">-</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-icon">🔴</span>
+      <div>
+        <div class="stat-label">재고 부족 (20% 이하)</div>
+        <div class="stat-value" id="low-count">-</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-icon">💰</span>
+      <div>
+        <div class="stat-label">오늘 매출</div>
+        <div class="stat-value" id="today-revenue">-</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-icon">🍜</span>
+      <div>
+        <div class="stat-label">오늘 판매</div>
+        <div class="stat-value" id="today-qty">-</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 재고 부족 배너 -->
+  <div class="low-stock-banner" id="low-banner" style="display:none;">
+    <span class="icon">⚠️</span>
+    <div class="text">
+      <strong id="low-banner-text"></strong>
+      <span> — 공급업체에 자동 발주할까요?</span>
+    </div>
+    <button class="btn btn-danger btn-sm" onclick="sendOrder()">발주 발송</button>
+  </div>
+
+  <!-- 탭 -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('sale')">🛒 판매 처리</div>
+    <div class="tab" onclick="switchTab('stock')">📦 재고 현황</div>
+    <div class="tab" onclick="switchTab('cost')">📊 원가 분석</div>
+    <div class="tab" onclick="switchTab('sales')">💰 판매 현황</div>
+    <div class="tab" onclick="switchTab('restock')">🔄 재고 보충</div>
+  </div>
+
+  <!-- 판매 처리 탭 -->
+  <div class="tab-content active" id="tab-sale">
+    <div class="section-title">메뉴를 선택하여 판매 처리하세요</div>
+    <div class="menu-grid" id="menu-grid"></div>
+  </div>
+
+  <!-- 재고 현황 탭 -->
+  <div class="tab-content" id="tab-stock">
+    <div class="section-title">전체 재고 현황</div>
+    <div class="card">
+      <div class="card-body" style="padding:0;">
+        <table>
+          <thead>
+            <tr>
+              <th>분류</th><th>식자재</th><th>현재 재고</th><th>최대 재고</th>
+              <th>재고율</th><th>상태</th>
+            </tr>
+          </thead>
+          <tbody id="stock-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 원가 분석 탭 -->
+  <div class="tab-content" id="tab-cost">
+    <div class="section-title">메뉴별 식자재 원가 상세</div>
+    <div id="cost-cards"></div>
+  </div>
+
+  <!-- 판매 현황 탭 -->
+  <div class="tab-content" id="tab-sales">
+    <div class="section-title">오늘의 판매 현황</div>
+    <div class="card">
+      <div class="card-body" style="padding:0;">
+        <table>
+          <thead><tr><th>메뉴</th><th>판매수</th><th>매출</th></tr></thead>
+          <tbody id="sales-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 재고 보충 탭 -->
+  <div class="tab-content" id="tab-restock">
+    <div class="section-title">식자재 재고 보충</div>
+    <div class="card">
+      <div class="card-body" style="padding:0;">
+        <table>
+          <thead><tr><th>분류</th><th>식자재</th><th>현재 재고</th><th>최대 재고</th><th>재고율</th><th>보충</th></tr></thead>
+          <tbody id="restock-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 판매 수량 모달 -->
+<div class="modal-overlay" id="sell-modal">
+  <div class="modal">
+    <h2>🛒 판매 처리</h2>
+    <div id="sell-cost-preview" style="margin-bottom:14px;"></div>
+    <label>메뉴</label>
+    <input type="text" id="sell-menu-name" readonly style="background:#f8f9fa;">
+    <label>판매 수량</label>
+    <input type="number" id="sell-qty" value="1" min="1">
+    <div style="text-align:right;">
+      <button class="btn btn-primary" onclick="confirmSell()">판매 확인</button>
+      <button class="btn btn-secondary" onclick="closeModal('sell-modal')">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 재고 보충 모달 -->
+<div class="modal-overlay" id="restock-modal">
+  <div class="modal">
+    <h2>🔄 재고 보충</h2>
+    <label>식자재</label>
+    <input type="text" id="restock-name" readonly style="background:#f8f9fa;">
+    <label>보충 수량 (<span id="restock-unit"></span>)</label>
+    <input type="number" id="restock-amount" value="0" min="0" step="any">
+    <div style="text-align:right;">
+      <button class="btn btn-primary" onclick="confirmRestock()">보충 확인</button>
+      <button class="btn btn-secondary" onclick="closeModal('restock-modal')">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 토스트 -->
+<div id="toast"></div>
+
+<script>
+let stockData = [];
+let costData = {};
+let currentSellMenu = '';
+
+function showToast(msg, duration = 3000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', duration);
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    const ids = ['sale','stock','cost','sales','restock'];
+    t.classList.toggle('active', ids[i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+function stockBarClass(ratio) {
+  if (ratio <= 20) return 'bar-low';
+  if (ratio <= 40) return 'bar-warn';
+  return 'bar-ok';
+}
+
+function badgeClass(ratio) {
+  if (ratio <= 20) return 'badge-low';
+  if (ratio <= 40) return 'badge-warn';
+  return 'badge-ok';
+}
+
+function badgeText(ratio) {
+  if (ratio <= 20) return '🔴 긴급';
+  if (ratio <= 40) return '🟡 주의';
+  return '🟢 정상';
+}
+
+async function loadAll() {
+  const [stockRes, costRes, salesRes] = await Promise.all([
+    fetch('/api/stock').then(r => r.json()),
+    fetch('/api/costs').then(r => r.json()),
+    fetch('/api/sales').then(r => r.json()),
+  ]);
+
+  stockData = stockRes;
+  costData = costRes;
+
+  // 요약 카드
+  const low = stockData.filter(i => i.ratio <= 20);
+  document.getElementById('total-ingredients').textContent = stockData.length + '종';
+  document.getElementById('low-count').textContent = low.length + '개';
+
+  let totalRevenue = 0, totalQty = 0;
+  Object.values(salesRes).forEach(s => { totalRevenue += s.revenue; totalQty += s.qty; });
+  document.getElementById('today-revenue').textContent = totalRevenue.toLocaleString() + '원';
+  document.getElementById('today-qty').textContent = totalQty + '그릇';
+
+  // 저재고 배너
+  if (low.length > 0) {
+    document.getElementById('low-banner').style.display = 'flex';
+    document.getElementById('low-banner-text').textContent =
+      low.map(i => `${i.name}(${i.ratio}%)`).join(', ') + ' 재고 부족!';
+  } else {
+    document.getElementById('low-banner').style.display = 'none';
+  }
+
+  renderMenuGrid(costRes);
+  renderStockTable(stockData);
+  renderCostCards(costRes);
+  renderSalesTable(salesRes);
+  renderRestockTable(stockData);
+}
+
+function renderMenuGrid(costs) {
+  const grid = document.getElementById('menu-grid');
+  grid.innerHTML = Object.entries(costs).map(([name, info]) => `
+    <div class="menu-card" onclick="openSellModal('${name}', ${info.total_cost})">
+      <h3>${name}</h3>
+      <div class="menu-price">${info.price.toLocaleString()}원</div>
+      <div class="menu-cost">원가: ${info.total_cost.toLocaleString()}원</div>
+      <div class="menu-margin">마진: ${info.margin.toLocaleString()}원 (${info.margin_rate}%)</div>
+    </div>
+  `).join('');
+}
+
+function openSellModal(menuName, cost) {
+  currentSellMenu = menuName;
+  document.getElementById('sell-menu-name').value = menuName;
+  document.getElementById('sell-qty').value = 1;
+  document.getElementById('sell-cost-preview').innerHTML =
+    `<div class="alert alert-success">한 그릇 원가: <strong>${cost.toLocaleString()}원</strong></div>`;
+  document.getElementById('sell-modal').classList.add('open');
+}
+
+async function confirmSell() {
+  const qty = parseInt(document.getElementById('sell-qty').value);
+  if (!qty || qty < 1) { showToast('수량을 입력하세요.'); return; }
+
+  const res = await fetch('/api/sell', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({menu: currentSellMenu, qty})
+  });
+  const data = await res.json();
+  closeModal('sell-modal');
+
+  if (data.error) {
+    showToast('❌ ' + data.error);
+  } else {
+    const c = data.cost_info;
+    showToast(`✓ ${currentSellMenu} ${qty}그릇 판매! 매출 ${(c.price * qty).toLocaleString()}원`);
+    await loadAll();
+  }
+}
+
+function renderStockTable(items) {
+  const tbody = document.getElementById('stock-table');
+  const sorted = [...items].sort((a,b) => a.category.localeCompare(b.category) || a.ratio - b.ratio);
+  tbody.innerHTML = sorted.map(item => `
+    <tr>
+      <td><span style="color:#888;font-size:0.82rem;">${item.category}</span></td>
+      <td><strong>${item.name}</strong></td>
+      <td>${item.stock.toLocaleString()}${item.unit}</td>
+      <td>${item.max_stock.toLocaleString()}${item.unit}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="progress-wrap">
+            <div class="progress-bar ${stockBarClass(item.ratio)}" style="width:${Math.min(item.ratio,100)}%;"></div>
+          </div>
+          <span style="font-size:0.82rem;">${item.ratio}%</span>
+        </div>
+      </td>
+      <td><span class="badge ${badgeClass(item.ratio)}">${badgeText(item.ratio)}</span></td>
+    </tr>
+  `).join('');
+}
+
+function renderCostCards(costs) {
+  const container = document.getElementById('cost-cards');
+  container.innerHTML = Object.entries(costs).map(([name, info]) => `
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header">
+        🍜 ${name}
+        <span style="margin-left:auto;color:#888;font-weight:400;font-size:0.85rem;">
+          판매가 ${info.price.toLocaleString()}원 &nbsp;|&nbsp; 원가 ${info.total_cost.toLocaleString()}원 &nbsp;|&nbsp;
+          <span style="color:#2d7a3e;">마진 ${info.margin_rate}%</span>
+        </span>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <table>
+          <thead><tr><th>식자재</th><th>사용량</th><th>원가</th></tr></thead>
+          <tbody>
+            ${Object.entries(info.breakdown).map(([ing, d]) => `
+              <tr>
+                <td>${ing}</td>
+                <td>${d.amount}${d.unit}</td>
+                <td>${d.cost.toLocaleString()}원</td>
+              </tr>
+            `).join('')}
+            <tr style="background:#f8f9fa;font-weight:700;">
+              <td colspan="2">총 원가</td>
+              <td>${info.total_cost.toLocaleString()}원</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderSalesTable(sales) {
+  const tbody = document.getElementById('sales-table');
+  if (!Object.keys(sales).length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#aaa;padding:24px;">오늘 판매 기록이 없습니다</td></tr>';
+    return;
+  }
+  let total = 0;
+  tbody.innerHTML = Object.entries(sales).map(([menu, d]) => {
+    total += d.revenue;
+    return `<tr><td>${menu}</td><td>${d.qty}그릇</td><td>${d.revenue.toLocaleString()}원</td></tr>`;
+  }).join('') + `
+    <tr style="background:#f8f9fa;font-weight:700;">
+      <td>합계</td><td></td><td>${total.toLocaleString()}원</td>
+    </tr>`;
+}
+
+function renderRestockTable(items) {
+  const tbody = document.getElementById('restock-table');
+  const sorted = [...items].sort((a,b) => a.ratio - b.ratio);
+  tbody.innerHTML = sorted.map(item => `
+    <tr>
+      <td><span style="color:#888;font-size:0.82rem;">${item.category}</span></td>
+      <td><strong>${item.name}</strong></td>
+      <td>${item.stock.toLocaleString()}${item.unit}</td>
+      <td>${item.max_stock.toLocaleString()}${item.unit}</td>
+      <td><span class="badge ${badgeClass(item.ratio)}">${item.ratio}%</span></td>
+      <td>
+        <button class="btn btn-primary btn-sm"
+          onclick="openRestockModal('${item.name}','${item.unit}')">보충</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openRestockModal(name, unit) {
+  document.getElementById('restock-name').value = name;
+  document.getElementById('restock-unit').textContent = unit;
+  document.getElementById('restock-amount').value = '';
+  document.getElementById('restock-modal').classList.add('open');
+}
+
+async function confirmRestock() {
+  const name = document.getElementById('restock-name').value;
+  const amount = parseFloat(document.getElementById('restock-amount').value);
+  if (!amount || amount <= 0) { showToast('수량을 입력하세요.'); return; }
+
+  const res = await fetch('/api/restock', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ingredient: name, amount})
+  });
+  const data = await res.json();
+  closeModal('restock-modal');
+  if (data.error) showToast('❌ ' + data.error);
+  else { showToast(`✓ ${name} ${amount} 보충 완료!`); await loadAll(); }
+}
+
+async function sendOrder() {
+  const res = await fetch('/api/order', {method: 'POST'});
+  const data = await res.json();
+  if (data.sent) showToast('✓ 발주 이메일 발송 완료!', 4000);
+  else showToast('⚠️ 발주 처리됨 (이메일 미설정 시 콘솔 출력)', 4000);
+}
+
+// 모달 바깥 클릭 닫기
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+
+loadAll();
+setInterval(loadAll, 30000); // 30초마다 갱신
+</script>
+</body>
+</html>
