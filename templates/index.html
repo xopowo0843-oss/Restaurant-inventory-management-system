@@ -150,6 +150,10 @@
 <header>
   <span>🍲</span>
   <h1>식당 재고관리 시스템</h1>
+  <div style="margin-left:auto;text-align:right;font-size:0.8rem;opacity:0.85;line-height:1.5;">
+    <div>🕔 자동 마감: <strong id="close-time">-</strong></div>
+    <div>다음 실행: <span id="next-run">-</span></div>
+  </div>
 </header>
 
 <div class="container">
@@ -203,6 +207,7 @@
     <div class="tab" onclick="switchTab('cost')">📊 원가 분석</div>
     <div class="tab" onclick="switchTab('sales')">💰 판매 현황</div>
     <div class="tab" onclick="switchTab('restock')">🔄 재고 보충</div>
+    <div class="tab" onclick="switchTab('close')">📋 마감 리포트</div>
   </div>
 
   <!-- 판매 처리 탭 -->
@@ -260,6 +265,56 @@
       </div>
     </div>
   </div>
+
+  <!-- 마감 리포트 탭 -->
+  <div class="tab-content" id="tab-close">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+      <div class="section-title" style="margin:0;">오늘 마감 리포트</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary btn-sm" onclick="loadCloseReport()">🔄 새로고침</button>
+        <button class="btn btn-danger btn-sm" onclick="runClose()">📋 지금 마감 실행</button>
+      </div>
+    </div>
+
+    <!-- 마감 요약 -->
+    <div id="close-summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;"></div>
+
+    <div class="grid-2">
+      <!-- 판매 현황 -->
+      <div class="card">
+        <div class="card-header">💰 오늘 판매</div>
+        <div class="card-body" style="padding:0;">
+          <table>
+            <thead><tr><th>메뉴</th><th>수량</th><th>매출</th></tr></thead>
+            <tbody id="close-sales-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 식자재 사용량 -->
+      <div class="card">
+        <div class="card-header">🧾 오늘 사용한 식자재</div>
+        <div class="card-body" style="padding:0;">
+          <table>
+            <thead><tr><th>분류</th><th>식자재</th><th>사용량</th><th>원가</th></tr></thead>
+            <tbody id="close-usage-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 재고 부족 경고 -->
+    <div id="close-low-section" style="margin-top:16px;display:none;">
+      <div class="low-stock-banner">
+        <span class="icon">⚠️</span>
+        <div class="text">
+          <strong id="close-low-text"></strong>
+          <span> — 마감 시 자동 발주가 나갑니다</span>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="sendOrder()">지금 발주</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- 판매 수량 모달 -->
@@ -309,12 +364,11 @@ function showToast(msg, duration = 3000) {
 }
 
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => {
-    const ids = ['sale','stock','cost','sales','restock'];
-    t.classList.toggle('active', ids[i] === name);
-  });
+  const ids = ['sale','stock','cost','sales','restock','close'];
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ids[i] === name));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'close') loadCloseReport();
 }
 
 function closeModal(id) {
@@ -340,11 +394,15 @@ function badgeText(ratio) {
 }
 
 async function loadAll() {
-  const [stockRes, costRes, salesRes] = await Promise.all([
+  const [stockRes, costRes, salesRes, schedRes] = await Promise.all([
     fetch('/api/stock').then(r => r.json()),
     fetch('/api/costs').then(r => r.json()),
     fetch('/api/sales').then(r => r.json()),
+    fetch('/api/schedule').then(r => r.json()),
   ]);
+
+  document.getElementById('close-time').textContent = schedRes.close_time;
+  document.getElementById('next-run').textContent = schedRes.next_run;
 
   stockData = stockRes;
   costData = costRes;
@@ -532,8 +590,81 @@ async function confirmRestock() {
 async function sendOrder() {
   const res = await fetch('/api/order', {method: 'POST'});
   const data = await res.json();
-  if (data.sent) showToast('✓ 발주 이메일 발송 완료!', 4000);
-  else showToast('⚠️ 발주 처리됨 (이메일 미설정 시 콘솔 출력)', 4000);
+  if (data.sent) showToast(`✓ ${data.categories.join(', ')} 발주 발송 완료!`, 4000);
+  else showToast('✓ 재고 부족 없음 — 발주 불필요', 3000);
+}
+
+async function runClose() {
+  if (!confirm('지금 마감을 실행할까요?\n마감 리포트 이메일 발송 + 재고 부족 자동 발주가 진행됩니다.')) return;
+  showToast('⏳ 마감 실행 중...', 2000);
+  const res = await fetch('/api/close', {method: 'POST'});
+  const data = await res.json();
+  showToast('✓ 마감 완료! 이메일 발송 및 발주 처리됨', 4000);
+  loadCloseReport();
+  loadAll();
+}
+
+async function loadCloseReport() {
+  const report = await fetch('/api/close/report').then(r => r.json());
+
+  // 요약 박스
+  const margin = report.total_revenue - report.total_ingredient_cost;
+  const marginRate = report.total_revenue
+    ? Math.round(margin / report.total_revenue * 1000) / 10 : 0;
+  document.getElementById('close-summary').innerHTML = `
+    ${closeStat('💰 총 매출', report.total_revenue.toLocaleString() + '원', '#2b6cb0')}
+    ${closeStat('🍜 총 판매', report.total_qty + '그릇', '#2d7a3e')}
+    ${closeStat('🧾 식자재 원가', report.total_ingredient_cost.toLocaleString() + '원', '#b07d00')}
+    ${closeStat('📈 마진율', marginRate + '%', '#6b46c1')}
+  `;
+
+  // 판매 테이블
+  const salesTbody = document.getElementById('close-sales-table');
+  if (!Object.keys(report.sales).length) {
+    salesTbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#aaa;padding:20px;">판매 없음</td></tr>';
+  } else {
+    let total = 0;
+    salesTbody.innerHTML = Object.entries(report.sales).map(([m,d]) => {
+      total += d.revenue;
+      return `<tr><td>${m}</td><td>${d.qty}그릇</td><td>${d.revenue.toLocaleString()}원</td></tr>`;
+    }).join('') + `<tr style="background:#f8f9fa;font-weight:700;"><td>합계</td><td></td><td>${total.toLocaleString()}원</td></tr>`;
+  }
+
+  // 사용량 테이블
+  const usageTbody = document.getElementById('close-usage-table');
+  const usageEntries = Object.entries(report.ingredient_usage)
+    .sort((a,b) => a[1].category.localeCompare(b[1].category));
+  if (!usageEntries.length) {
+    usageTbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:20px;">사용 없음</td></tr>';
+  } else {
+    let totalCost = 0;
+    usageTbody.innerHTML = usageEntries.map(([name, d]) => {
+      totalCost += d.cost;
+      return `<tr>
+        <td style="color:#888;font-size:0.82rem;">${d.category}</td>
+        <td>${name}</td><td>${d.used}${d.unit}</td><td>${d.cost.toLocaleString()}원</td>
+      </tr>`;
+    }).join('') + `<tr style="background:#f8f9fa;font-weight:700;">
+      <td colspan="3">총 식자재 원가</td><td>${totalCost.toLocaleString()}원</td>
+    </tr>`;
+  }
+
+  // 재고 부족 경고
+  const lowSection = document.getElementById('close-low-section');
+  if (report.low_stock && report.low_stock.length) {
+    lowSection.style.display = 'block';
+    document.getElementById('close-low-text').textContent =
+      report.low_stock.map(i => `${i.name}(${i.ratio}%)`).join(', ') + ' 재고 부족';
+  } else {
+    lowSection.style.display = 'none';
+  }
+}
+
+function closeStat(label, value, color) {
+  return `<div style="background:white;border-radius:10px;padding:16px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.07);">
+    <div style="font-size:0.78rem;color:#888;margin-bottom:4px;">${label}</div>
+    <div style="font-size:1.2rem;font-weight:700;color:${color};">${value}</div>
+  </div>`;
 }
 
 // 모달 바깥 클릭 닫기
@@ -542,7 +673,6 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
 });
 
 loadAll();
-setInterval(loadAll, 30000); // 30초마다 갱신
 </script>
 </body>
 </html>

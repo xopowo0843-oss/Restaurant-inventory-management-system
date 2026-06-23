@@ -155,21 +155,75 @@ def _log_sale(menu_name: str, qty: int):
         json.dump(logs, f, ensure_ascii=False, indent=2)
 
 
-def get_sales_summary() -> dict:
-    """오늘의 판매 요약을 반환합니다."""
+def get_sales_summary(date: str = None) -> dict:
+    """판매 요약 반환. date 미지정 시 오늘."""
     if not os.path.exists(SALES_LOG_FILE):
         return {}
     with open(SALES_LOG_FILE, "r", encoding="utf-8") as f:
         logs = json.load(f)
 
-    today = datetime.now().date().isoformat()
-    today_logs = [l for l in logs if l["timestamp"].startswith(today)]
+    target = date or datetime.now().date().isoformat()
+    day_logs = [l for l in logs if l["timestamp"].startswith(target)]
 
     summary = {}
-    for log in today_logs:
+    for log in day_logs:
         menu = log["menu"]
         if menu not in summary:
             summary[menu] = {"qty": 0, "revenue": 0}
         summary[menu]["qty"] += log["qty"]
         summary[menu]["revenue"] += log["price"]
     return summary
+
+
+def get_daily_usage_report(date: str = None) -> dict:
+    """
+    하루 마감 리포트: 판매 수량 × 레시피 = 오늘 사용한 식자재 총량 계산.
+    Returns:
+      {
+        "date": "2026-06-23",
+        "sales": {메뉴: {qty, revenue}},
+        "total_revenue": int,
+        "total_qty": int,
+        "ingredient_usage": {식자재: {used, unit, cost}},
+        "total_ingredient_cost": int,
+        "stock": [{name, stock, max_stock, unit, ratio, status, category}],
+        "low_stock": [{...}],
+      }
+    """
+    target = date or datetime.now().date().isoformat()
+    sales = get_sales_summary(target)
+    stock = load_stock()
+
+    # 식자재별 사용량 집계
+    usage: dict[str, float] = {}
+    for menu, data in sales.items():
+        recipe = RECIPES.get(menu, {}).get("ingredients", {})
+        for ing, amount in recipe.items():
+            usage[ing] = usage.get(ing, 0) + amount * data["qty"]
+
+    ingredient_usage = {}
+    total_cost = 0
+    for ing, used in usage.items():
+        info = stock[ing]
+        cost = info["cost_per_unit"] * used
+        ingredient_usage[ing] = {
+            "used": used,
+            "unit": info["unit"],
+            "cost": round(cost),
+            "category": info.get("category", INGREDIENTS[ing]["category"]),
+        }
+        total_cost += cost
+
+    total_revenue = sum(d["revenue"] for d in sales.values())
+    total_qty = sum(d["qty"] for d in sales.values())
+
+    return {
+        "date": target,
+        "sales": sales,
+        "total_revenue": total_revenue,
+        "total_qty": total_qty,
+        "ingredient_usage": ingredient_usage,
+        "total_ingredient_cost": round(total_cost),
+        "stock": get_stock_summary(stock),
+        "low_stock": check_low_stock(stock),
+    }
