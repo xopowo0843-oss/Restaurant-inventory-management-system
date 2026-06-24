@@ -13,6 +13,8 @@ from inventory import (
     restock, get_sales_summary, get_daily_usage_report, load_stock
 )
 from notifier import notify_low_stock, send_daily_close_email
+from excel_handler import (generate_template, parse_upload,
+                           apply_receive, get_receive_logs)
 from auth import (init_admin, login as auth_login, register as auth_register,
                   approve_user, reject_user, delete_user,
                   get_pending_users, get_all_staff, change_password)
@@ -89,6 +91,56 @@ def register():
 def logout():
     session.clear()
     return redirect(url_for("login_page"))
+
+
+# ── 식자재 입고 ───────────────────────────────────────
+
+@app.route("/receive")
+@login_required
+def receive_page():
+    return render_template("receive.html", logs=get_receive_logs())
+
+
+@app.route("/receive/template")
+@login_required
+def receive_template():
+    from flask import send_file
+    category = request.args.get("category", "")
+    supplier = request.args.get("supplier", "")
+    buf = generate_template(supplier_name=supplier, category=category)
+    filename = f"입고명세서_{category or '전체'}_{supplier or '한씨막국수'}.xlsx"
+    return send_file(buf, as_attachment=True,
+                     download_name=filename,
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+@app.route("/receive/preview", methods=["POST"])
+@login_required
+def receive_preview():
+    if "file" not in request.files:
+        return jsonify({"error": "파일이 없습니다."}), 400
+    f = request.files["file"]
+    try:
+        parsed = parse_upload(f.stream)
+        # 카테고리 정보 추가
+        from data import INGREDIENTS
+        for item in parsed["items"]:
+            item["category"] = INGREDIENTS.get(item["name"], {}).get("category", "")
+        return jsonify(parsed)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/receive/apply", methods=["POST"])
+@login_required
+def receive_apply():
+    data = request.get_json()
+    memo = data.pop("memo", "")
+    try:
+        result = apply_receive(data, memo=memo)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 
 # ── 관리자 — 직원 관리 ────────────────────────────────
