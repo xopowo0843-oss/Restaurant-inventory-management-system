@@ -243,9 +243,11 @@ def notify_low_stock(low_stock_items: list[dict]) -> dict[str, list]:
         if supplier_email:
             print(f"  → {category} 공급업체 '{supplier_name}'({supplier_email})에 발주 이메일 발송 중...")
             success = send_order_email(supplier_name, supplier_email, items)
-            method = "email"
+            method = "email" if success else "이메일발송실패"
             if success:
                 print(f"    ✓ 발송 완료")
+            else:
+                print(f"    ✗ 발송 실패 (SMTP 설정 확인 필요)")
         else:
             print(f"  [공급업체 미설정] 카테고리 '{category}' - 공급업체 관리에서 이메일을 등록하세요")
             method = "미발송"
