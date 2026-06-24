@@ -98,7 +98,11 @@ def logout():
 @app.route("/receive")
 @login_required
 def receive_page():
-    return render_template("receive.html", logs=get_receive_logs())
+    try:
+        logs = get_receive_logs()
+    except Exception:
+        logs = []
+    return render_template("receive.html", logs=logs)
 
 
 @app.route("/receive/template")
@@ -323,4 +327,4 @@ print(f"✓ 자동 마감 스케줄 등록: 매일 {CLOSE_HOUR:02d}:{CLOSE_MIN:0
 
 
 if __name__ == "__main__":
-    app.run(debug=False, host="0.0.0.0", port=5000)
+    app.run(debug=True, host="0.0.0.0", port=5000)
