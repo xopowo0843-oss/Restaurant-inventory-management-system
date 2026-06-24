@@ -215,6 +215,8 @@ def notify_low_stock(low_stock_items: list[dict]) -> dict[str, list]:
     재고 부족 식자재를 카테고리별로 묶어 공급업체에 발주 요청.
     Returns: {카테고리: [처리된 식자재 목록]}
     """
+    from suppliers import save_order_log, get_suppliers_by_category
+
     if not low_stock_items:
         return {}
 
@@ -226,17 +228,39 @@ def notify_low_stock(low_stock_items: list[dict]) -> dict[str, list]:
 
     results = {}
     for category, items in by_category.items():
-        supplier = _get_supplier(category)
-        if not supplier:
-            print(f"  [공급업체 미설정] 카테고리 '{category}' - .env에 SUPPLIER_{category} 설정 필요")
-            results[category] = items
-            continue
+        # DB 공급업체 우선, 없으면 .env 폴백
+        db_suppliers = get_suppliers_by_category(category)
+        if db_suppliers:
+            supplier_name = db_suppliers[0]["name"]
+            supplier_email = db_suppliers[0].get("email", "")
+        else:
+            env_supplier = _get_supplier(category)
+            if env_supplier:
+                supplier_name, supplier_email = env_supplier
+            else:
+                supplier_name, supplier_email = "", ""
 
-        supplier_name, supplier_email = supplier
-        print(f"  → {category} 공급업체 '{supplier_name}'({supplier_email})에 발주 이메일 발송 중...")
-        success = send_order_email(supplier_name, supplier_email, items)
-        if success:
-            print(f"    ✓ 발송 완료")
+        if supplier_email:
+            print(f"  → {category} 공급업체 '{supplier_name}'({supplier_email})에 발주 이메일 발송 중...")
+            success = send_order_email(supplier_name, supplier_email, items)
+            method = "email"
+            if success:
+                print(f"    ✓ 발송 완료")
+        else:
+            print(f"  [공급업체 미설정] 카테고리 '{category}' - 공급업체 관리에서 이메일을 등록하세요")
+            method = "미발송"
+
+        # 발주 로그 저장
+        save_order_log(
+            items=[{"name": i["name"], "unit": i["unit"],
+                    "stock": i["stock"], "max_stock": i["max_stock"],
+                    "order_qty": round(i["max_stock"] - i["stock"], 3),
+                    "ratio": i["ratio"]}
+                   for i in items],
+            supplier_name=supplier_name,
+            category=category,
+            method=method,
+        )
         results[category] = items
 
     return results

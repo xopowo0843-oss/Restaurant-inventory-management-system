@@ -19,6 +19,8 @@ from auth import (init_admin, login as auth_login, register as auth_register,
                   approve_user, reject_user, delete_user,
                   get_pending_users, get_all_staff, change_password)
 from data import RECIPES
+from suppliers import (get_all_suppliers, get_supplier, add_supplier,
+                       update_supplier, delete_supplier, get_order_logs)
 
 load_dotenv()
 app = Flask(__name__)
@@ -202,6 +204,69 @@ def admin_change_password():
     return render_template("admin_users.html",
                            pending=get_pending_users(), staff=get_all_staff(),
                            flash=None, pw_success=True)
+
+
+# ── 공급업체 관리 ─────────────────────────────────────
+
+@app.route("/suppliers")
+@login_required
+def suppliers_page():
+    return render_template("suppliers.html")
+
+
+@app.route("/orders")
+@login_required
+def orders_page():
+    return render_template("orders.html")
+
+
+@app.route("/api/suppliers", methods=["GET"])
+@login_required
+def api_suppliers_get():
+    return jsonify(get_all_suppliers())
+
+
+@app.route("/api/suppliers", methods=["POST"])
+@login_required
+def api_suppliers_post():
+    data = request.get_json()
+    try:
+        entry = add_supplier(data)
+        return jsonify(entry)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/suppliers/<int:supplier_id>", methods=["PUT"])
+@login_required
+def api_suppliers_put(supplier_id):
+    data = request.get_json()
+    result = update_supplier(supplier_id, data)
+    if result is None:
+        return jsonify({"error": "업체를 찾을 수 없습니다."}), 404
+    return jsonify(result)
+
+
+@app.route("/api/suppliers/<int:supplier_id>", methods=["DELETE"])
+@login_required
+def api_suppliers_delete(supplier_id):
+    ok = delete_supplier(supplier_id)
+    if not ok:
+        return jsonify({"error": "업체를 찾을 수 없습니다."}), 404
+    return jsonify({"ok": True})
+
+
+@app.route("/api/orders")
+@login_required
+def api_orders():
+    return jsonify(get_order_logs())
+
+
+@app.route("/api/receive-logs")
+@login_required
+def api_receive_logs():
+    from excel_handler import get_receive_logs
+    return jsonify(get_receive_logs(limit=100))
 
 
 # ── 메인 대시보드 ─────────────────────────────────────

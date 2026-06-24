@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>공급업체 관리 — 한씨막국수</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', sans-serif; background: #f5f6fa; color: #333; }
+
+header {
+  background: linear-gradient(135deg,#2b6cb0,#1a4a7c);
+  color: white; padding: 16px 32px;
+  display: flex; align-items: center; gap: 12px;
+}
+header h1 { font-size: 1.2rem; font-weight: 700; }
+header .nav { margin-left: auto; display: flex; gap: 8px; }
+header a {
+  color: rgba(255,255,255,0.85); text-decoration: none;
+  font-size: 0.85rem; padding: 6px 14px;
+  border: 1px solid rgba(255,255,255,0.4); border-radius: 6px;
+}
+header a:hover { background: rgba(255,255,255,0.15); }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 28px 16px; }
+
+.top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+.page-title { font-size: 1.1rem; font-weight: 700; color: #1a4a7c; }
+
+.btn {
+  padding: 10px 20px; border: none; border-radius: 8px;
+  font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: all 0.2s;
+}
+.btn-primary { background: linear-gradient(135deg,#2b6cb0,#1a4a7c); color: white; }
+.btn-primary:hover { opacity: 0.88; }
+.btn-danger { background: #e53e3e; color: white; padding: 6px 14px; font-size: 0.82rem; }
+.btn-danger:hover { background: #c0392b; }
+.btn-edit { background: #edf2f7; color: #2b6cb0; padding: 6px 14px; font-size: 0.82rem; border: 1px solid #bee3f8; }
+.btn-edit:hover { background: #bee3f8; }
+
+.card { background: white; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden; }
+
+.cat-filter { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+.cat-btn {
+  padding: 6px 16px; border-radius: 20px; font-size: 0.82rem; font-weight: 600;
+  border: 1.5px solid #e2e8f0; background: white; cursor: pointer; transition: all 0.2s;
+}
+.cat-btn.active, .cat-btn:hover { background: #2b6cb0; color: white; border-color: #2b6cb0; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+th { background: #2b6cb0; color: white; padding: 11px 12px; text-align: left; font-weight: 600; }
+td { padding: 11px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #f8fbff; }
+
+.badge {
+  display: inline-block; padding: 3px 10px; border-radius: 12px;
+  font-size: 0.75rem; font-weight: 700;
+}
+.badge-면류 { background: #EBF4FF; color: #2b6cb0; }
+.badge-수산 { background: #E6FFFA; color: #2d7a6a; }
+.badge-육류 { background: #FFF5F5; color: #c0392b; }
+.badge-육수 { background: #FAF5FF; color: #6b46c1; }
+.badge-채소 { background: #F0FFF4; color: #2d7a3e; }
+.badge-양념 { background: #FFFAF0; color: #b07d00; }
+.badge-기타 { background: #F7FAFC; color: #555; }
+
+.empty { text-align: center; color: #aaa; padding: 48px; }
+
+/* 모달 */
+.modal-bg {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45); z-index: 1000;
+  align-items: center; justify-content: center;
+}
+.modal-bg.show { display: flex; }
+.modal {
+  background: white; border-radius: 14px;
+  width: 100%; max-width: 560px; max-height: 92vh;
+  overflow-y: auto; padding: 28px; margin: 16px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+}
+.modal h2 { font-size: 1.1rem; color: #1a4a7c; margin-bottom: 20px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media(max-width:480px){ .form-grid { grid-template-columns: 1fr; } }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group.full { grid-column: 1/-1; }
+label { font-size: 0.8rem; font-weight: 600; color: #555; }
+input, select, textarea {
+  padding: 9px 11px; border: 1.5px solid #e2e8f0; border-radius: 7px;
+  font-size: 0.92rem; outline: none; font-family: inherit;
+  transition: border 0.2s;
+}
+input:focus, select:focus, textarea:focus { border-color: #2b6cb0; }
+textarea { resize: vertical; min-height: 60px; }
+.modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+.btn-cancel { background: #edf2f7; color: #555; }
+.btn-cancel:hover { background: #e2e8f0; }
+
+.alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem; }
+.alert-success { background: #e6f4ea; color: #2d7a3e; border-left: 4px solid #48bb78; }
+.alert-error { background: #fdecea; color: #c0392b; border-left: 4px solid #e53e3e; }
+</style>
+</head>
+<body>
+
+<header>
+  <span>🏪</span>
+  <h1>한씨막국수 — 공급업체 관리</h1>
+  <div class="nav">
+    <a href="/orders">📋 발주·입고 현황</a>
+    <a href="/">← 재고관리로</a>
+  </div>
+</header>
+
+<div class="container">
+  <div id="alert-area"></div>
+
+  <div class="top-bar">
+    <div class="page-title">공급업체 목록</div>
+    <button class="btn btn-primary" onclick="openModal()">＋ 업체 등록</button>
+  </div>
+
+  <div class="cat-filter">
+    <button class="cat-btn active" onclick="filterCat('', this)">전체</button>
+    <button class="cat-btn" onclick="filterCat('면류', this)">면류</button>
+    <button class="cat-btn" onclick="filterCat('수산', this)">수산</button>
+    <button class="cat-btn" onclick="filterCat('육류', this)">육류</button>
+    <button class="cat-btn" onclick="filterCat('육수', this)">육수</button>
+    <button class="cat-btn" onclick="filterCat('채소', this)">채소</button>
+    <button class="cat-btn" onclick="filterCat('양념', this)">양념</button>
+    <button class="cat-btn" onclick="filterCat('기타', this)">기타</button>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>업체명</th>
+          <th>분류</th>
+          <th>연락처</th>
+          <th>이메일</th>
+          <th>카카오</th>
+          <th>사업자번호</th>
+          <th>계좌</th>
+          <th style="width:110px;">관리</th>
+        </tr>
+      </thead>
+      <tbody id="supplier-table">
+        <tr><td colspan="8" class="empty">불러오는 중...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 등록/수정 모달 -->
+<div class="modal-bg" id="modal-bg" onclick="closeModalBg(event)">
+  <div class="modal">
+    <h2 id="modal-title">업체 등록</h2>
+    <input type="hidden" id="edit-id">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>업체명 *</label>
+        <input id="f-name" placeholder="예: 한씨수산">
+      </div>
+      <div class="form-group">
+        <label>분류 *</label>
+        <select id="f-category">
+          <option value="">선택</option>
+          <option value="면류">면류</option>
+          <option value="수산">수산</option>
+          <option value="육류">육류</option>
+          <option value="육수">육수</option>
+          <option value="채소">채소</option>
+          <option value="양념">양념</option>
+          <option value="기타">기타</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>연락처</label>
+        <input id="f-phone" placeholder="010-0000-0000">
+      </div>
+      <div class="form-group">
+        <label>이메일 (발주 수신)</label>
+        <input id="f-email" type="email" placeholder="supplier@example.com">
+      </div>
+      <div class="form-group">
+        <label>카카오톡 ID</label>
+        <input id="f-kakao" placeholder="카카오 채널 또는 ID">
+      </div>
+      <div class="form-group">
+        <label>사업자번호</label>
+        <input id="f-business-no" placeholder="000-00-00000">
+      </div>
+      <div class="form-group">
+        <label>은행명</label>
+        <input id="f-bank-name" placeholder="예: 국민은행">
+      </div>
+      <div class="form-group">
+        <label>계좌번호</label>
+        <input id="f-bank-account" placeholder="000-000-000000">
+      </div>
+      <div class="form-group">
+        <label>예금주</label>
+        <input id="f-bank-holder" placeholder="예금주명">
+      </div>
+      <div class="form-group full">
+        <label>주소</label>
+        <input id="f-address" placeholder="납품처 또는 사업장 주소">
+      </div>
+      <div class="form-group full">
+        <label>메모</label>
+        <textarea id="f-memo" placeholder="기타 특이사항, 납품 조건 등"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="closeModal()">취소</button>
+      <button class="btn btn-primary" onclick="saveSupplier()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let allSuppliers = [];
+let currentCat = '';
+
+async function loadSuppliers() {
+  const res = await fetch('/api/suppliers');
+  allSuppliers = await res.json();
+  renderTable(allSuppliers);
+}
+
+function renderTable(list) {
+  const tbody = document.getElementById('supplier-table');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">등록된 공급업체가 없습니다</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(s => `
+    <tr data-cat="${s.category}">
+      <td><strong>${s.name}</strong></td>
+      <td><span class="badge badge-${s.category}">${s.category}</span></td>
+      <td>${s.phone || '-'}</td>
+      <td>${s.email ? `<a href="mailto:${s.email}" style="color:#2b6cb0;">${s.email}</a>` : '-'}</td>
+      <td>${s.kakao || '-'}</td>
+      <td>${s.business_no || '-'}</td>
+      <td>${s.bank_name ? `${s.bank_name}<br><small style="color:#888;">${s.bank_account} (${s.bank_holder})</small>` : '-'}</td>
+      <td>
+        <button class="btn btn-edit" onclick="editSupplier(${s.id})">수정</button>
+        <button class="btn btn-danger" onclick="deleteSupplier(${s.id}, '${s.name}')">삭제</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function filterCat(cat, el) {
+  currentCat = cat;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderTable(cat ? allSuppliers.filter(s => s.category === cat) : allSuppliers);
+}
+
+function openModal(data = null) {
+  document.getElementById('modal-title').textContent = data ? '업체 수정' : '업체 등록';
+  document.getElementById('edit-id').value = data ? data.id : '';
+  ['name','category','phone','email','kakao','business_no','bank_name','bank_account','bank_holder','address','memo'].forEach(k => {
+    const el = document.getElementById('f-' + k.replace('_','-'));
+    if (el) el.value = data ? (data[k] || '') : '';
+  });
+  document.getElementById('modal-bg').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal-bg').classList.remove('show');
+}
+
+function closeModalBg(e) {
+  if (e.target === document.getElementById('modal-bg')) closeModal();
+}
+
+async function saveSupplier() {
+  const id = document.getElementById('edit-id').value;
+  const payload = {
+    name: document.getElementById('f-name').value.trim(),
+    category: document.getElementById('f-category').value,
+    phone: document.getElementById('f-phone').value.trim(),
+    email: document.getElementById('f-email').value.trim(),
+    kakao: document.getElementById('f-kakao').value.trim(),
+    business_no: document.getElementById('f-business-no').value.trim(),
+    bank_name: document.getElementById('f-bank-name').value.trim(),
+    bank_account: document.getElementById('f-bank-account').value.trim(),
+    bank_holder: document.getElementById('f-bank-holder').value.trim(),
+    address: document.getElementById('f-address').value.trim(),
+    memo: document.getElementById('f-memo').value.trim(),
+  };
+  if (!payload.name || !payload.category) {
+    showAlert('업체명과 분류는 필수입니다.', 'error'); return;
+  }
+  const url = id ? `/api/suppliers/${id}` : '/api/suppliers';
+  const method = id ? 'PUT' : 'POST';
+  const res = await fetch(url, {
+    method, headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (data.error) { showAlert(data.error, 'error'); return; }
+  closeModal();
+  showAlert(id ? '업체 정보가 수정됐습니다.' : '업체가 등록됐습니다.', 'success');
+  loadSuppliers();
+}
+
+function editSupplier(id) {
+  const s = allSuppliers.find(x => x.id === id);
+  if (s) openModal(s);
+}
+
+async function deleteSupplier(id, name) {
+  if (!confirm(`'${name}' 업체를 삭제하시겠습니까?`)) return;
+  const res = await fetch(`/api/suppliers/${id}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (data.error) { showAlert(data.error, 'error'); return; }
+  showAlert('업체가 삭제됐습니다.', 'success');
+  loadSuppliers();
+}
+
+function showAlert(msg, type) {
+  const div = document.createElement('div');
+  div.className = `alert alert-${type}`;
+  div.textContent = msg;
+  const area = document.getElementById('alert-area');
+  area.innerHTML = '';
+  area.appendChild(div);
+  setTimeout(() => div.remove(), 4000);
+}
+
+loadSuppliers();
+</script>
+</body>
+</html>
