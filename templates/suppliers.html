@@ -158,6 +158,22 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="modal">
     <h2 id="modal-title">업체 등록</h2>
     <input type="hidden" id="edit-id">
+
+    <!-- OCR 업로드 영역 -->
+    <div id="ocr-zone" style="border:2px dashed #b3c9e8;border-radius:10px;padding:18px;
+         text-align:center;background:#f0f7ff;margin-bottom:18px;cursor:pointer;"
+         onclick="document.getElementById('ocr-file').click()"
+         ondragover="event.preventDefault();this.style.borderColor='#2b6cb0'"
+         ondragleave="this.style.borderColor='#b3c9e8'"
+         ondrop="handleOcrDrop(event)">
+      <div style="font-size:1.8rem;margin-bottom:6px;">📄</div>
+      <div style="font-weight:700;color:#2b6cb0;margin-bottom:4px;">사업자등록증 / 세금계산서 업로드</div>
+      <div style="font-size:0.8rem;color:#888;">클릭하거나 파일을 끌어다 놓으세요 (JPG, PNG, PDF)</div>
+      <div id="ocr-status" style="margin-top:8px;font-size:0.85rem;"></div>
+    </div>
+    <input type="file" id="ocr-file" accept=".jpg,.jpeg,.png,.pdf,.webp"
+           style="display:none" onchange="runOcr(this.files[0])">
+
     <div class="form-grid">
       <div class="form-group">
         <label>업체명 *</label>
@@ -260,6 +276,52 @@ function filterCat(cat, el) {
   renderTable(cat ? allSuppliers.filter(s => s.category === cat) : allSuppliers);
 }
 
+function handleOcrDrop(e) {
+  e.preventDefault();
+  document.getElementById('ocr-zone').style.borderColor = '#b3c9e8';
+  const file = e.dataTransfer.files[0];
+  if (file) runOcr(file);
+}
+
+async function runOcr(file) {
+  if (!file) return;
+  const status = document.getElementById('ocr-status');
+  const zone = document.getElementById('ocr-zone');
+  status.innerHTML = '<span style="color:#2b6cb0;">⏳ 문서 분석 중...</span>';
+  zone.style.pointerEvents = 'none';
+
+  const form = new FormData();
+  form.append('file', file);
+
+  try {
+    const res = await fetch('/api/suppliers/ocr', { method: 'POST', body: form });
+    const data = await res.json();
+
+    if (data.error) {
+      status.innerHTML = `<span style="color:#e53e3e;">⚠️ ${data.error}</span>`;
+      return;
+    }
+
+    // 폼 자동 채우기
+    const map = {
+      'f-name': data.name, 'f-phone': data.phone, 'f-email': data.email,
+      'f-business-no': data.business_no, 'f-bank-name': data.bank_name,
+      'f-bank-account': data.bank_account, 'f-bank-holder': data.bank_holder,
+      'f-address': data.address, 'f-memo': data.memo,
+    };
+    for (const [id, val] of Object.entries(map)) {
+      const el = document.getElementById(id);
+      if (el && val) el.value = val;
+    }
+
+    status.innerHTML = '<span style="color:#2d7a3e;">✓ 정보가 자동으로 입력됐습니다. 확인 후 저장하세요.</span>';
+  } catch (e) {
+    status.innerHTML = '<span style="color:#e53e3e;">⚠️ 처리 중 오류가 발생했습니다.</span>';
+  } finally {
+    zone.style.pointerEvents = 'auto';
+  }
+}
+
 function openModal(data = null) {
   document.getElementById('modal-title').textContent = data ? '업체 수정' : '업체 등록';
   document.getElementById('edit-id').value = data ? data.id : '';
@@ -267,6 +329,8 @@ function openModal(data = null) {
     const el = document.getElementById('f-' + k.replace('_','-'));
     if (el) el.value = data ? (data[k] || '') : '';
   });
+  document.getElementById('ocr-status').innerHTML = '';
+  document.getElementById('ocr-file').value = '';
   document.getElementById('modal-bg').classList.add('show');
 }
 

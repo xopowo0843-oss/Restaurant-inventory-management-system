@@ -220,6 +220,24 @@ def orders_page():
     return render_template("orders.html")
 
 
+@app.route("/api/suppliers/ocr", methods=["POST"])
+@login_required
+def api_suppliers_ocr():
+    if "file" not in request.files:
+        return jsonify({"error": "파일이 없습니다."}), 400
+    f = request.files["file"]
+    if not f.filename:
+        return jsonify({"error": "파일명이 없습니다."}), 400
+    try:
+        from ocr_extractor import extract_supplier_info
+        result = extract_supplier_info(f.stream, f.filename)
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": f"OCR 처리 중 오류: {e}"}), 500
+
+
 @app.route("/api/suppliers", methods=["GET"])
 @login_required
 def api_suppliers_get():
