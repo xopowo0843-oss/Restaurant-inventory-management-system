@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>직원 관리 — 한씨막국수</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f5f6fa; color: #333; }
+
+  header {
+    background: linear-gradient(135deg, #2b6cb0, #1a4a7c);
+    color: white; padding: 16px 32px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  header h1 { font-size: 1.2rem; font-weight: 700; }
+  header a {
+    margin-left: auto; color: rgba(255,255,255,0.8);
+    text-decoration: none; font-size: 0.85rem;
+    padding: 6px 14px; border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 6px; transition: all 0.2s;
+  }
+  header a:hover { background: rgba(255,255,255,0.15); color: white; }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 28px 16px; }
+
+  .section-title {
+    font-size: 1rem; font-weight: 700; color: #2b6cb0;
+    margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+  }
+  .badge-count {
+    background: #e53e3e; color: white; font-size: 0.75rem;
+    padding: 2px 7px; border-radius: 99px; font-weight: 700;
+  }
+
+  .card {
+    background: white; border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    margin-bottom: 28px; overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th {
+    background: #f8f9fa; padding: 11px 16px;
+    text-align: left; color: #666; font-weight: 600;
+    border-bottom: 2px solid #e9ecef;
+  }
+  td { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; }
+  tr:last-child td { border-bottom: none; }
+
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 0.75rem; font-weight: 600;
+  }
+  .badge-pending  { background: #fff8e1; color: #b07d00; }
+  .badge-approved { background: #e6f4ea; color: #2d7a3e; }
+  .badge-rejected { background: #fdecea; color: #c0392b; }
+  .badge-admin    { background: #e8eaf6; color: #3949ab; }
+
+  .btn {
+    padding: 6px 14px; border: none; border-radius: 7px;
+    font-size: 0.82rem; font-weight: 600; cursor: pointer;
+    transition: all 0.2s; text-decoration: none; display: inline-block;
+  }
+  .btn-approve { background: #e6f4ea; color: #2d7a3e; }
+  .btn-approve:hover { background: #48bb78; color: white; }
+  .btn-reject  { background: #fdecea; color: #c0392b; margin-left: 6px; }
+  .btn-reject:hover  { background: #e53e3e; color: white; }
+  .btn-delete  { background: #f0f0f0; color: #666; margin-left: 6px; }
+  .btn-delete:hover  { background: #e53e3e; color: white; }
+  .btn-back { background: #2b6cb0; color: white; }
+  .btn-back:hover { background: #1a4a7c; }
+
+  .empty { text-align: center; color: #aaa; padding: 28px; }
+
+  .flash {
+    padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem;
+  }
+  .flash-success { background: #e6f4ea; color: #2d7a3e; border-left: 4px solid #48bb78; }
+</style>
+</head>
+<body>
+<header>
+  <span>🍜</span>
+  <h1>한씨막국수 — 직원 관리</h1>
+  <a href="/">← 재고관리로</a>
+</header>
+
+<div class="container">
+
+  {% if flash %}
+  <div class="flash flash-success">{{ flash }}</div>
+  {% endif %}
+
+  <!-- 승인 대기 -->
+  <div class="section-title">
+    ⏳ 승인 대기 중
+    {% if pending %}
+    <span class="badge-count">{{ pending|length }}</span>
+    {% endif %}
+  </div>
+  <div class="card">
+    <table>
+      <thead>
+        <tr><th>이름</th><th>아이디</th><th>신청일시</th><th>처리</th></tr>
+      </thead>
+      <tbody>
+        {% if pending %}
+          {% for u in pending %}
+          <tr>
+            <td><strong>{{ u.name }}</strong></td>
+            <td>{{ u.username }}</td>
+            <td style="color:#888;font-size:0.82rem;">{{ u.created_at[:16].replace('T',' ') }}</td>
+            <td>
+              <form method="POST" action="/admin/users/approve/{{ u.id }}" style="display:inline;">
+                <button type="submit" class="btn btn-approve">✓ 승인</button>
+              </form>
+              <form method="POST" action="/admin/users/reject/{{ u.id }}" style="display:inline;">
+                <button type="submit" class="btn btn-reject">✗ 거절</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="4" class="empty">대기 중인 신청이 없습니다</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 전체 직원 목록 -->
+  <div class="section-title">👥 전체 직원 목록</div>
+  <div class="card">
+    <table>
+      <thead>
+        <tr><th>이름</th><th>아이디</th><th>역할</th><th>상태</th><th>승인일시</th><th>관리</th></tr>
+      </thead>
+      <tbody>
+        {% if staff %}
+          {% for u in staff %}
+          <tr>
+            <td><strong>{{ u.name }}</strong></td>
+            <td>{{ u.username }}</td>
+            <td>
+              {% if u.role == 'admin' %}
+              <span class="badge badge-admin">관리자</span>
+              {% else %}
+              <span style="color:#555;">직원</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if u.status == 'approved' %}
+              <span class="badge badge-approved">승인됨</span>
+              {% elif u.status == 'pending' %}
+              <span class="badge badge-pending">대기중</span>
+              {% else %}
+              <span class="badge badge-rejected">거절됨</span>
+              {% endif %}
+            </td>
+            <td style="color:#888;font-size:0.82rem;">
+              {{ u.approved_at[:16].replace('T',' ') if u.approved_at else '-' }}
+            </td>
+            <td>
+              {% if u.status == 'rejected' or u.status == 'pending' %}
+              <form method="POST" action="/admin/users/approve/{{ u.id }}" style="display:inline;">
+                <button type="submit" class="btn btn-approve">승인</button>
+              </form>
+              {% endif %}
+              {% if u.status == 'approved' %}
+              <form method="POST" action="/admin/users/reject/{{ u.id }}" style="display:inline;">
+                <button type="submit" class="btn btn-reject">정지</button>
+              </form>
+              {% endif %}
+              <form method="POST" action="/admin/users/delete/{{ u.id }}"
+                style="display:inline;"
+                onsubmit="return confirm('{{ u.name }} 계정을 삭제할까요?')">
+                <button type="submit" class="btn btn-delete">삭제</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="6" class="empty">등록된 직원이 없습니다</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>

@@ -149,10 +149,26 @@
 
 <header>
   <span>🍲</span>
-  <h1>식당 재고관리 시스템</h1>
+  <h1>한씨막국수 재고관리</h1>
   <div style="margin-left:auto;text-align:right;font-size:0.8rem;opacity:0.85;line-height:1.5;">
     <div>🕔 자동 마감: <strong id="close-time">-</strong></div>
     <div>다음 실행: <span id="next-run">-</span></div>
+  </div>
+  <div style="margin-left:20px;display:flex;align-items:center;gap:10px;">
+    {% if user_role == 'admin' %}
+    <a href="/admin/users" style="position:relative;color:rgba(255,255,255,0.85);text-decoration:none;
+       font-size:0.85rem;padding:6px 14px;border:1px solid rgba(255,255,255,0.4);
+       border-radius:6px;white-space:nowrap;">
+      👥 직원관리
+      {% if pending_count > 0 %}
+      <span style="position:absolute;top:-6px;right:-6px;background:#e53e3e;color:white;
+        font-size:0.7rem;padding:1px 5px;border-radius:99px;font-weight:700;">{{ pending_count }}</span>
+      {% endif %}
+    </a>
+    {% endif %}
+    <div style="font-size:0.85rem;opacity:0.85;">{{ user_name }}님</div>
+    <a href="/logout" style="color:rgba(255,255,255,0.7);text-decoration:none;font-size:0.82rem;
+       padding:5px 12px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;">로그아웃</a>
   </div>
 </header>
 
