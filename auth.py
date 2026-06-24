@@ -120,3 +120,20 @@ def get_pending_users() -> list[dict]:
 
 def get_all_staff() -> list[dict]:
     return [u for u in load_users() if u["role"] != "admin"]
+
+
+def change_password(user_id: int, current_password: str, new_password: str) -> dict:
+    """비밀번호 변경 — 현재 비번 확인 후 변경"""
+    users = load_users()
+    for u in users:
+        if u["id"] == user_id:
+            if _hash_password(current_password, u["salt"]) != u["password_hash"]:
+                return {"error": "현재 비밀번호가 올바르지 않습니다."}
+            if len(new_password) < 6:
+                return {"error": "새 비밀번호는 6자 이상이어야 합니다."}
+            new_salt = secrets.token_hex(16)
+            u["salt"] = new_salt
+            u["password_hash"] = _hash_password(new_password, new_salt)
+            save_users(users)
+            return {"ok": True}
+    return {"error": "사용자를 찾을 수 없습니다."}

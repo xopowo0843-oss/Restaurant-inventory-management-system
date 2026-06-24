@@ -15,7 +15,7 @@ from inventory import (
 from notifier import notify_low_stock, send_daily_close_email
 from auth import (init_admin, login as auth_login, register as auth_register,
                   approve_user, reject_user, delete_user,
-                  get_pending_users, get_all_staff)
+                  get_pending_users, get_all_staff, change_password)
 from data import RECIPES
 
 load_dotenv()
@@ -100,7 +100,8 @@ def admin_users():
     return render_template("admin_users.html",
                            pending=get_pending_users(),
                            staff=get_all_staff(),
-                           flash=flash_msg)
+                           flash=flash_msg,
+                           pw_error=None, pw_success=False)
 
 
 @app.route("/admin/users/approve/<int:user_id>", methods=["POST"])
@@ -125,6 +126,26 @@ def admin_delete(user_id):
     delete_user(user_id)
     session["flash"] = "계정이 삭제됐습니다."
     return redirect(url_for("admin_users"))
+
+
+@app.route("/admin/change-password", methods=["POST"])
+@admin_required
+def admin_change_password():
+    current = request.form.get("current_password", "")
+    new_pw  = request.form.get("new_password", "")
+    new_pw2 = request.form.get("new_password2", "")
+    if new_pw != new_pw2:
+        return render_template("admin_users.html",
+                               pending=get_pending_users(), staff=get_all_staff(),
+                               flash=None, pw_error="새 비밀번호가 일치하지 않습니다.")
+    result = change_password(session["user_id"], current, new_pw)
+    if "error" in result:
+        return render_template("admin_users.html",
+                               pending=get_pending_users(), staff=get_all_staff(),
+                               flash=None, pw_error=result["error"])
+    return render_template("admin_users.html",
+                           pending=get_pending_users(), staff=get_all_staff(),
+                           flash=None, pw_success=True)
 
 
 # ── 메인 대시보드 ─────────────────────────────────────
